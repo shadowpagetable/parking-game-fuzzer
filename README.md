@@ -300,3 +300,10 @@ don't lose your exploration ability along the way.
 additional functionality around interacting with and mutating list-like inputs.
 [This discussion](https://github.com/addisoncrump/parking-game-fuzzer/discussions/2) explores how this could be used in
 the context of this project and provides further details on its features.
+
+## Addendum 2: Klotski puzzles
+
+The parking game is secretly a specific class of ["Klotski puzzles"](https://en.wikipedia.org/wiki/Klotski), and you
+can apply the same strategies above to these puzzles as well.
+A great video which helps with visualising the state space of these puzzles was uploaded just a little after the
+original publication of this repository, and [I highly recommend you check it out](https://youtu.be/YGLNyHd2w10)!
