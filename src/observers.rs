@@ -102,12 +102,22 @@ where
 
 impl<T> ObserverWithHashField for FinalStateObserver<T>
 where
-    T: Hash,
+    T: BoardValue,
 {
-    fn hash(&self) -> Option<u64> {
+    fn hash(self: &FinalStateObserver<T>) -> Option<u64> {
         if let Some(final_state) = &self.final_state {
             let mut hasher = DefaultHasher::new();
+            let board = final_state.board().ok()?;
+            dbg!(&board);
             // TODO(pt.0): build a hash which uniquely identifies the state
+            for c in board.concrete() {
+                if let Some(val) = c {
+                    hasher.write_usize((*val).into());
+                } else {
+                    hasher.write_usize(0);
+                }
+
+            }
             //  - remember, not all parts of the state need to be hashed to identify it uniquely
             //  - only hash the parts which are necessary to distinguish the states
             Some(hasher.finish())
