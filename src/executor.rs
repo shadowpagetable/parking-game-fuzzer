@@ -83,6 +83,11 @@ where
         //  - check the docs for how to apply moves to a board
         //    - see: https://docs.rs/parking-game/latest/parking_game/struct.Board.html
         //  - if an error occurs during a move, return `Ok(ExitKind::Crash)`.
+        for (car,dir) in moves.into_iter() {
+            if board.shift_car(*car,*dir).is_err() {
+                return Ok(ExitKind::Crash);
+            }
+        }
         // TODO(pt.3): add a microsecond delay *after each move* to simulate cost:
         // sleep(Duration::from_micros(1));
 
