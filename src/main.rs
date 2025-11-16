@@ -9,15 +9,20 @@ pub mod observers;
 pub mod stages;
 
 use crate::input::PGInput;
+use libafl::{feedback_and, feedback_not};
 use libafl::corpus::{Corpus, InMemoryCorpus};
 use libafl::state::{HasSolutions, StdState};
+use libafl::fuzzer::StdFuzzer;
+use libafl::schedulers::queue::QueueScheduler;
 use libafl_bolts::rands::StdRand;
+use libafl::feedbacks::{CrashFeedback, new_hash_feedback::NewHashFeedback};
 use parking_game::{BoardValue, Car, Orientation, Position, State};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::fmt::Debug;
 use std::{env, fs};
+use libafl_bolts::tuples::Handled;
 
 /// Parses a map with the following rules:
 /// 1. Empty spaces are denoted with `.`.
@@ -126,15 +131,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // for the maps in `maps/`, you only need u8; for larger maps, you may need to increase this
     // maps with side lengths >255 are not supported (also: where did you get them? :D)
     let init = parse_map::<u8>(&fs::read_to_string(path).unwrap());
-
     println!("Attempting to solve:");
     println!("{}", init.board().unwrap());
 
     // TODO(pt.1): create a ViewObserver with ViewObserver::<u8>::default()
     // this creates a view observer for a map which is indexed by u8s
+    let pgViewObserver = observers::ViewObserver::<u8>::default();
 
     // TODO(pt.1): create a FinalStateObserver with its default method for a map indexed by u8s
-
+    let pgFinalObserver = observers::FinalStateObserver::<u8>::default();
     // TODO(pt.1): create a feedback which will add an entry to the corpus if we see a new state
     //  - this feedback should first check that the target has **not** "crashed"
     //  - iff so, we should check if this is a newly observed state by checking its hash
@@ -142,6 +147,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     //      - is there a feedback which checks for new hashes?
     //    - hint: check https://docs.rs/libafl/latest/libafl/index.html#macros for combining feedbacks
     //    - hint: check https://github.com/AFLplusplus/LibAFL/tree/main/fuzzers for examples
+   
+    let handle = pgViewObserver.handle();
+    let mut pgFeedback = NewHashFeedback::new(&feedback_and!(feedback_not!(CrashFeedback::new()),handle)); 
     // TODO(pt.1): after implementing CrashRateFeedback, add it here at an appropriate place
     //  - you should see a failure rate of >80% for tokyo1.map, >95% for tokyo36.map
     //  - hint: consider the order of the feedback evaluation; where would be best to put this?
@@ -151,24 +159,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     // TODO(pt.3): make the feedback compatible with snapshot fuzzing
     //  - the tail mutator makes re-executing the input redundant for prefix of moves
     //  - what feedback stashes the final state? how do we combine it with the existing feedbacks?
-    let mut feedback = ();
 
     // TODO(pt.1): create an objective which will determine if the puzzle is solved
     //  - this feedback should first check that the target has **not** "crashed"
     //  - then, we should check if the puzzle is solved
     //    - hint: this is mostly the same as setting up the feedback
-    let mut objective = ();
+   
+    let handle1 = pgViewObserver.handle();
+    let mut pgObjective = feedback_and!(feedback_not!(CrashFeedback::new()),feedbacks::SolvedFeedback::new(&handle1));
+
 
     // sets up the state and storage for preserved inputs and the solutions
     let mut state = StdState::new(
         StdRand::new(),
         InMemoryCorpus::<PGInput>::new(),
         InMemoryCorpus::new(),
-        &mut feedback,
-        &mut objective,
+        &mut pgFeedback,
+        &mut pgObjective,
     )?;
 
     // TODO(pt.1): create a PGRandMutator with &init
+    let pgMutator = mutators::PGRandMutator::new(&init);
     // TODO(pt.2): replace it with a PGTailMutator
 
     // TODO(pt.1): create an executor and pass your observers to it
@@ -176,11 +187,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     //  - hint: in LibAFL, lists of differing types are created with the `tuple_list` macro
     //    - extra: what does this macro do?
     //    - extra: why do we format lists of data of different types like this?
+    //
+
+    let mut pgExecutor = executor::PGExecutor::new(init, pgViewObserver);
 
     // TODO(pt.1): create a fuzzer which uses a queue scheduler and the provided feedback/objective
     //  - see: https://docs.rs/libafl/latest/libafl/fuzzer/struct.StdFuzzer.html
     //  - extra: could we make a better scheduler for this?
 
+    let mut pgScheduler = QueueScheduler::new();
+    let mut pgFuzzer = StdFuzzer::new(pgScheduler,pgFeedback,pgObjective);
     // TODO(pt.1): create a list of stages to be used by the fuzzer
     //  - for this fuzzer, we only need one stage: one that mutates and executes the input
     //  - hint: look at https://docs.rs/libafl/latest/libafl/stages/index.html

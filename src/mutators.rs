@@ -60,8 +60,11 @@ where
         //  - first, pick a random index in the moves using `state.rand_mut().below(...)`
         //  - second, pick a random direction using `state.rand_mut().choose(...)`
         //  - finally, insert the (car, direction) tuple at the generated index
-
-        todo!("Indicate that the input was mutated")
+        let ind = state.rand_mut().below(NonZeroUsize::new(self.count).unwrap());
+        dbg!(&car);
+       // let dir = state.rand_mut().choose().unwrap());
+        
+        Ok(MutationResult::Mutated)
     }
 
     fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {
